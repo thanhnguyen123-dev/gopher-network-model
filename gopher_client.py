@@ -22,13 +22,15 @@ class GopherClient:
         self.references_with_errors = set()
         self.external_servers = dict()
 
-    def send_request(self, path):
+
+    def send_request(self, path: str) -> None:
         print(f"Request: {path}, time: {datetime.now()}")
         path += "\r\n"
         self.sock = SocketUtils.create_socket(self.server_host, self.server_port)
         self.sock.sendall(path.encode())
     
-    def read_response(self, path):
+
+    def read_response(self, path: str) -> bytes:
         data = b""
         while True:
             try:
@@ -56,20 +58,20 @@ class GopherClient:
 
         return data
     
-    def parse_response(self, data):
+    def parse_response(self, data: str) -> list[Item]:
         parsed_items = []
 
         # split into an array of lines because each line ends with a CRLF
         lines = data.split("\r\n")
         for line in lines:
-            parsed_item = GopherClient.parse_item(line)
+            parsed_item: Item = GopherClient.parse_item(line)
             parsed_items.append(parsed_item)
 
         return parsed_items
 
 
     @staticmethod
-    def parse_item(line):
+    def parse_item(line: str) -> Item:
         # split into an array of items because each item is separated by a tab
         raw_items = line.split("\t")
         item_type = raw_items[0][0] if len(raw_items[0]) > 0 else ""
@@ -80,7 +82,7 @@ class GopherClient:
         return Item(item_type, path, host, port)
 
     
-    def index_server(self, path):
+    def index_server(self, path: str) -> None:
         # if the path has already been visited, skip it to avoid loops
         if path in self.visited_paths:
             return
@@ -131,8 +133,7 @@ class GopherClient:
                 self.handle_non_text_file(item_path)
 
 
-    def handle_text_file(self, item_path):
-        print(f"Text file: {item_path}")
+    def handle_text_file(self, item_path: str) -> None:
         self.send_request(item_path)
         try:
             text_file_content = self.read_response(item_path).decode()
@@ -142,14 +143,34 @@ class GopherClient:
         if item_path not in self.references_with_issues:
             self.text_file_path_list.append(item_path)
 
-        if len(text_file_content) < self.smallest_text_file_content:
-            self.smallest_text_file_content = text_file_content
+        if len(text_file_content) < self.smallest_text_file[2]: 
+            self.smallest_text_file = (item_path, text_file_content, len(text_file_content))
 
-        if len(text_file_content) > self.largest_text_file_size:
-            
+        if len(text_file_content) > self.largest_text_file[1]:
+            self.largest_text_file = (item_path, len(text_file_content))
 
-    def handle_non_text_file(self, item_path):
-        print(f"Non-text file: {item_path}")
+
+    def handle_non_text_file(self, item_path: str) -> None:
+        self.send_request(item_path)
+        try:
+            non_text_file_content = self.read_response(item_path).decode()
+        except:
+            return
+
+        if item_path not in self.references_with_issues:
+            self.binary_file_path_list.append(item_path)
+
+        if len(non_text_file_content) < self.smallest_binary_file[1]:
+            self.smallest_binary_file = (item_path, len(non_text_file_content))
+
+        if len(non_text_file_content) > self.largest_binary_file[1]:
+            self.largest_binary_file = (item_path, len(non_text_file_content))
+
+
+    def print_results(self) -> None:
+        pass
+        
+        
 
     def run(self):
         root_path = ""
