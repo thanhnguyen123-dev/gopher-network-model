@@ -46,7 +46,7 @@ class GopherClient:
                 if data.endswith(b".\r\n"):
                     break
 
-            except TimeoutError:
+            except (socket.timeout, TimeoutError):
                 print("Timeout")
                 self.references_with_issues.add(path)
                 self.sock.close()
@@ -168,9 +168,50 @@ class GopherClient:
 
 
     def print_results(self) -> None:
-        pass
+        print("\n----- Gopher Server Analysis Results -----\n")
         
+        # a. The number of Gopher directories on the server
+        print(f"a. Number of Gopher directories: {len(self.directories)}")
         
+        # b. The number and list of all simple text files (full path)
+        print(f"b. Number of text files: {len(self.text_file_path_list)}")
+        print("   List of text files:")
+        for path in self.text_file_path_list:
+            print(f"   - {path}")
+        
+        # c. The number and list of all binary files (full path)
+        print(f"c. Number of binary files: {len(self.binary_file_path_list)}")
+        print("   List of binary files:")
+        for path in self.binary_file_path_list:
+            print(f"   - {path}")
+        
+        # d. The contents of the smallest text file
+        print(f"d. Contents of the smallest text file ({self.smallest_text_file[0]}):")
+        print(f"   {self.smallest_text_file[1]}")
+        
+        # e. The size of the largest text file
+        print(f"e. Size of the largest text file ({self.largest_text_file[0]}): {self.largest_text_file[1]} bytes")
+        
+        # f. The size of the smallest and the largest binary files
+        print(f"f. Size of the smallest binary file ({self.smallest_binary_file[0]}): {self.smallest_binary_file[1]} bytes")
+        print(f"   Size of the largest binary file ({self.largest_binary_file[0]}): {self.largest_binary_file[1]} bytes")
+        
+        # g. The number of unique invalid references (those with an "error" type)
+        print(f"g. Number of unique invalid references: {len(self.references_with_errors)}")
+        
+        # h. A list of external servers that were referenced
+        print("h. External servers referenced:")
+        for host, (port, is_up) in self.external_servers.items():
+            status = "up" if is_up else "down"
+            print(f"   - {host}:{port} ({status})")
+        
+        # i. Any references that have "issues/errors"
+        print("i. References with issues/errors:")
+        for ref in self.references_with_issues:
+            print(f"   - {ref}")
+        
+        print("\n----- End of Analysis -----")
+
 
     def run(self):
         root_path = ""
