@@ -2,10 +2,14 @@ from socket import *
 from datetime import datetime
 from item import Item
 from socket_utils import SocketUtils
+from time import time
 
 # GopherClient class
 
 class GopherClient:
+    TIME_OUT = 35
+
+    # constructor
     def __init__(self, server_host, server_port):
         self.server_host = server_host                     
         self.server_port = server_port
@@ -24,7 +28,7 @@ class GopherClient:
 
 
     def send_request(self, path: str) -> None:
-        print(f"Request: {path}, time: {datetime.now()}")
+        print(f"Request: {path} @ Time: {datetime.now()}")
         path += "\r\n"
         self.sock = SocketUtils.create_socket(self.server_host, self.server_port)
         self.sock.sendall(path.encode())
@@ -32,7 +36,16 @@ class GopherClient:
 
     def read_response(self, path: str) -> bytes:
         data = b""
+
+        start_time = time()
+        
         while True:
+            if time() - start_time > GopherClient.TIME_OUT:
+                print(f"Timeout: {path} @ Time: {datetime.now()}, file is potentially too large")
+                self.references_with_issues.add(path)
+                self.sock.close()
+                raise TimeoutError
+
             try:
                 # receive data from the server
                 chunk = self.sock.recv(4096)
@@ -56,6 +69,8 @@ class GopherClient:
         self.sock.close()
 
 
+        if data.endswith(b".\r\n"):
+            return data[:-5]
         return data
     
     def parse_response(self, data: str) -> list[Item]:
@@ -83,7 +98,7 @@ class GopherClient:
 
     
     def index_server(self, path: str) -> None:
-        # if the path has already been visited, skip it to avoid loops
+        # if the path has already been visited, skip it to avoid loops or traps
         if path in self.visited_paths:
             return
         
@@ -108,30 +123,35 @@ class GopherClient:
                 continue
 
             # item-type 3 (error)
-            if item_type == "3":
+            elif item_type == "3":
                 self.references_with_errors.add(item_path)
+                return
 
             # EXTERNAL SERVER CASE
             elif item.is_external_server(self.server_host, self.server_port):
                 if is_up := item.is_external_server_up():
                     self.external_servers[item_host] = (item_port, is_up)
+                    return
                 else:
                     self.references_with_issues.add(item_path)
+                    return
             
             # INTERNAL SERVER CASE
             # item-type 0 (text file)
             elif item_type == "0":
                 self.handle_text_file(item_path)
+                return
 
             # item-type 1 (directory)
             elif item_type == "1" and item_path != "" and item_path not in self.directories:
                 self.index_server(item_path)
                 self.directories.add(item_path)
+                return
 
             # non-text file
             else:
                 self.handle_non_text_file(item_path)
-
+                return
 
     def handle_text_file(self, item_path: str) -> None:
         self.send_request(item_path)
@@ -217,3 +237,10 @@ class GopherClient:
         root_path = ""
         self.index_server(root_path)
 
+
+if __name__ == "__main__":
+    SERVER_HOST = "comp3310.ddns.net"
+    SERVER_PORT = 70
+    client = GopherClient(SERVER_HOST, SERVER_PORT)
+    client.run()
+    client.print_results()

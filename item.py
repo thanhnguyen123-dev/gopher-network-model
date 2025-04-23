@@ -6,6 +6,7 @@ class Item:
         self.request = request
         self.host = host
         self.port = port
+        
 
     def get_item_type(self) -> str:
         return self.item_type
