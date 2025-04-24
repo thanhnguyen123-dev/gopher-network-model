@@ -4,7 +4,7 @@ from item import Item
 from socket_utils import SocketUtils
 from time import time
 import os
-
+from file_stats import FileStats
 # GopherClient class
 
 class GopherClient:
@@ -23,10 +23,10 @@ class GopherClient:
         self.visited_paths = set()
         self.text_file_path_list = []
         self.binary_file_path_list = []
-        self.smallest_text_file = ("", float('inf'), "")    # tuple of (path, size, content)
-        self.largest_text_file = ("", 0)                    # tuple of (path, size)
-        self.smallest_binary_file = ("", float('inf'))      # tuple of (path, size)
-        self.largest_binary_file = ("", 0)                  # tuple of (path, size)
+        self.smallest_text_file = FileStats("", float('inf'), None)
+        self.largest_text_file = FileStats("", 0, None)
+        self.smallest_binary_file = FileStats("", float('inf'), None)
+        self.largest_binary_file = FileStats("", 0, None)
         self.references_with_issues = set()
         self.references_with_errors = set()
         self.external_servers = dict()
@@ -175,11 +175,11 @@ class GopherClient:
 
         self.text_file_path_list.append(item_path)
 
-        if len(text_file_content) < self.smallest_text_file[1]: 
-            self.smallest_text_file = (item_path, len(text_file_content), text_file_content.decode())
+        if len(text_file_content) < self.smallest_text_file.get_size(): 
+            self.smallest_text_file = FileStats(item_path, len(text_file_content), text_file_content.decode())
 
-        if len(text_file_content) > self.largest_text_file[1]:
-            self.largest_text_file = (item_path, len(text_file_content))
+        if len(text_file_content) > self.largest_text_file.get_size():
+            self.largest_text_file = FileStats(item_path, len(text_file_content), text_file_content.decode())
 
         self.save_file(item_path, text_file_content, is_text_file=True)
 
@@ -196,11 +196,11 @@ class GopherClient:
 
         self.binary_file_path_list.append(item_path)
 
-        if len(non_text_file_content) < self.smallest_binary_file[1]:
-            self.smallest_binary_file = (item_path, len(non_text_file_content))
+        if len(non_text_file_content) < self.smallest_binary_file.get_size():
+            self.smallest_binary_file = FileStats(item_path, len(non_text_file_content), non_text_file_content)
 
-        if len(non_text_file_content) > self.largest_binary_file[1]:
-            self.largest_binary_file = (item_path, len(non_text_file_content))
+        if len(non_text_file_content) > self.largest_binary_file.get_size():
+            self.largest_binary_file = FileStats(item_path, len(non_text_file_content), non_text_file_content)
 
         self.save_file(item_path, non_text_file_content, is_text_file=False)
 
@@ -244,15 +244,15 @@ class GopherClient:
             print(f"{path}")
         
         # d. The contents of the smallest text file
-        print(f"\nd. Contents of the smallest text file ({self.smallest_text_file[0]}):")
-        print(f"{self.smallest_text_file[2]}")
+        print(f"\nd. Contents of the smallest text file ({self.smallest_text_file.get_path()}):")
+        print(f"{self.smallest_text_file.get_content()}")
         
         # e. The size of the largest text file
-        print(f"\ne. Size of the largest text file ({self.largest_text_file[0]}): {self.largest_text_file[1]} bytes")
+        print(f"\ne. Size of the largest text file ({self.largest_text_file.get_path()}): {self.largest_text_file.get_size()} bytes")
         
         # f. The size of the smallest and the largest binary files
-        print(f"\nf. Size of the smallest binary file ({self.smallest_binary_file[0]}): {self.smallest_binary_file[1]} bytes")
-        print(f"   Size of the largest binary file ({self.largest_binary_file[0]}): {self.largest_binary_file[1]} bytes")
+        print(f"\nf. Size of the smallest binary file ({self.smallest_binary_file.get_path()}): {self.smallest_binary_file.get_size()} bytes")
+        print(f"   Size of the largest binary file ({self.largest_binary_file.get_path()}): {self.largest_binary_file.get_size()} bytes")
         
         # g. The number of unique invalid references (those with an "error" type)
         print(f"\ng. Number of unique invalid references: {len(self.references_with_errors)}")
