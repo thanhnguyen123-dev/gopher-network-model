@@ -5,14 +5,19 @@ from socket_utils import SocketUtils
 from time import time
 import os
 from file_stats import FileStats
-# GopherClient class
 
+"""
+    A class to index a Gopher server
+
+    :param server_host: the host of the Gopher server
+    :param server_port: the port of the Gopher server
+"""
 class GopherClient:
-    TIME_OUT = 20
-    EOF_TERMINATOR = b".\r\n"
-    CRLF = "\r\n"
-    TAB = "\t"
-    MAX_FILENAME_LENGTH = 255
+    TIME_OUT = 20                   #timeout in seconds
+    EOF_TERMINATOR = b".\r\n"       #.<CRLF>
+    CRLF = "\r\n"                   #<CRLF>
+    TAB = "\t"                      #<TAB>
+    MAX_FILENAME_LENGTH = 255       #maximum filename length
 
     # constructor
     def __init__(self, server_host, server_port):
@@ -32,6 +37,11 @@ class GopherClient:
         self.external_servers = dict()
 
 
+    """
+        Send a request to the Gopher server and print the request path and timestamp
+
+        :param path: the request path to send to the Gopher server
+    """
     def send_request(self, path: str) -> None:
         print(f"Request: {path} @ Time: {datetime.now()}")
         path += GopherClient.CRLF
@@ -39,6 +49,13 @@ class GopherClient:
         self.sock.sendall(path.encode())
     
 
+    """
+        Read the response from the Gopher server
+
+        :param path: the path to read the response from
+        :param is_text_file: whether the response is a text file or not
+        :return: the response from the Gopher server
+    """
     def read_response(self, path: str, is_text_file: bool = False) -> bytes:
         data = b""
 
@@ -46,6 +63,7 @@ class GopherClient:
         
         while True:
             if time() - start_time > GopherClient.TIME_OUT:
+                # if the file is potentially too large, add it to the references with issues
                 print(f"Timeout: {path} @ Time: {datetime.now()}, file is potentially too large")
                 self.references_with_issues.add(path)
                 self.sock.close()
@@ -60,7 +78,7 @@ class GopherClient:
                     break
                 data += chunk
 
-                # if the response ends with .CRLF, then it is the end of the file
+                # if the response ends with .<CRLF>, then it is the end of the file
                 if data.endswith(GopherClient.EOF_TERMINATOR):
                     break
 
@@ -74,29 +92,43 @@ class GopherClient:
         self.sock.close()
       
         if is_text_file:
+            # if the file is a text file, remove the .<CRLF> and return the payload
             if data.endswith(GopherClient.EOF_TERMINATOR):
                 payload = data[:-len(GopherClient.EOF_TERMINATOR)].rstrip(GopherClient.CRLF.encode())
                 return payload
             else:
+                # if the file is not a text file, add it to the references with issues
                 self.references_with_issues.add(path)
                 return data
         else:
+            # if the file is not a text file, return the payload
             return data
 
-    
+
+    """
+        Parse the response from the Gopher server
+
+        :param data: the response from the Gopher server
+        :return: the parsed items from the response
+    """
     def parse_response(self, data: str) -> list[Item]:
         parsed_items = []
 
-        # split into an array of lines because each line ends with a CRLF
+        # split into an array of lines because each line ends with a <CRLF>
         lines = data.split(GopherClient.CRLF)
         for line in lines:
-            parsed_item: Item = GopherClient.parse_item(line)
+            parsed_item: Item = self.parse_item(line)
             parsed_items.append(parsed_item)
 
         return parsed_items
 
 
-    @staticmethod
+    """
+        Parse the response from the Gopher server
+
+        :param line: the line to parse into an item
+        :return: the parsed item from the line
+    """
     def parse_item(line: str) -> Item:
         # split into an array of items because each item is separated by a tab
         raw_items = line.split(GopherClient.TAB)
@@ -108,19 +140,26 @@ class GopherClient:
         return Item(item_type, path, host, port)
 
     
+    """
+        Index the Gopher server recursively by exploring all the directories and files
+
+        :param path: the path to index
+    """
     def index_server(self, path: str) -> None:
         # if the path has already been visited, skip it to avoid loops or traps
         if path in self.visited_paths:
             return
         
+        self.visited_paths.add(path)
+        self.directories.add(path)
         self.send_request(path)
         raw_response = self.read_response(path).decode()
 
+        # if the response is empty, skip it
         if len(raw_response) == 0:
             return
-        self.visited_paths.add(path)
-        self.directories.add(path)
 
+        # parse the response into items
         items = self.parse_response(raw_response)
         for item in items:
             # extract item attributes
@@ -162,14 +201,21 @@ class GopherClient:
                 self.directories.add(item_path)
 
 
+    """
+        Handle a text file by sending a request to the Gopher server, reading the response, and saving the file
+        to the text_files directory
 
+        :param item_path: the path to the text file
+    """
     def handle_text_file(self, item_path: str) -> None:
         self.send_request(item_path)
         try:
             text_file_content = self.read_response(item_path, is_text_file=True)
         except:
+            print(f"Error reading response from: {item_path}")
             return
         
+        # if the item path has already been visited, skip it to avoid loops or traps
         if item_path in self.references_with_issues:
             return
 
@@ -184,11 +230,19 @@ class GopherClient:
         self.save_file(item_path, text_file_content, is_text_file=True)
 
 
+    """
+        Handle a non-text file by sending a request to the Gopher server, reading the response, and saving the file
+        to the binary_files directory
+
+        :param item_path: the path to the non-text file
+    """
     def handle_non_text_file(self, item_path: str) -> None:
         self.send_request(item_path)
+
         try:
             non_text_file_content = self.read_response(item_path, is_text_file=False)
         except:
+            print(f"Error reading response from: {item_path}")
             return
 
         if item_path in self.references_with_issues:
@@ -205,16 +259,29 @@ class GopherClient:
         self.save_file(item_path, non_text_file_content, is_text_file=False)
 
 
+    """
+        Save a file to the text_files or binary_files directory
+
+        :param file_path: the path to the file
+        :param content: the content of the file
+        :param is_text_file: whether the file is a text file or not
+    """
     def save_file(self, file_path: str, content: bytes, is_text_file: bool) -> None:
+        # create folder if it doesn't exist
         folder = "text_files" if is_text_file else "binary_files"
         os.makedirs(folder, exist_ok=True)
 
+        # get the file name
         file_name = file_path.split("/")[-1]
+
+        # if the file name is too long, truncate it
         if len(file_name) > GopherClient.MAX_FILENAME_LENGTH:
             file_name = file_name[:GopherClient.MAX_FILENAME_LENGTH]
 
+        # create the file path
         file_path = os.path.join(folder, file_name)
 
+        # write the content to the file
         with open(file_path, "w" if is_text_file else "wb") as file:
             if is_text_file:
                 file.write(content.decode())
@@ -222,6 +289,9 @@ class GopherClient:
                 file.write(content)
 
 
+    """
+        Print the results of the Gopher server
+    """
     def print_results(self) -> None:
         print("\n----- Gopher Server Analysis Results -----")
         
