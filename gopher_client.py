@@ -12,6 +12,7 @@ class GopherClient:
     EOF_TERMINATOR = b".\r\n"
     CRLF = "\r\n"
     TAB = "\t"
+    MAX_FILENAME_LENGTH = 255
 
     # constructor
     def __init__(self, server_host, server_port):
@@ -209,6 +210,9 @@ class GopherClient:
         os.makedirs(folder, exist_ok=True)
 
         file_name = file_path.split("/")[-1]
+        if len(file_name) > GopherClient.MAX_FILENAME_LENGTH:
+            file_name = file_name[:GopherClient.MAX_FILENAME_LENGTH]
+
         file_path = os.path.join(folder, file_name)
 
         with open(file_path, "w" if is_text_file else "wb") as file:
@@ -263,7 +267,7 @@ class GopherClient:
             print(f"{host}:{port} ({status})")
         
         # i. Any references that have "issues/errors"
-        print("\ni. References with issues/errors:" + str(len(self.references_with_issues)))
+        print("\ni. References with issues/errors:" )
         for ref in self.references_with_issues:
             print(f"{ref}")
         
