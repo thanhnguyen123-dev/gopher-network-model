@@ -180,6 +180,8 @@ class GopherClient:
         if len(text_file_content) > self.largest_text_file[1]:
             self.largest_text_file = (item_path, len(text_file_content))
 
+        self.save_file(item_path, text_file_content, is_text_file=True)
+
 
     def handle_non_text_file(self, item_path: str) -> None:
         self.send_request(item_path)
@@ -198,6 +200,22 @@ class GopherClient:
 
         if len(non_text_file_content) > self.largest_binary_file[1]:
             self.largest_binary_file = (item_path, len(non_text_file_content))
+
+        self.save_file(item_path, non_text_file_content, is_text_file=False)
+
+
+    def save_file(self, file_path: str, content: bytes, is_text_file: bool) -> None:
+        folder = "text_files" if is_text_file else "binary_files"
+        os.makedirs(folder, exist_ok=True)
+
+        file_name = file_path.split("/")[-1]
+        file_path = os.path.join(folder, file_name)
+
+        with open(file_path, "w" if is_text_file else "wb") as file:
+            if is_text_file:
+                file.write(content.decode())
+            else:
+                file.write(content)
 
 
     def print_results(self) -> None:
