@@ -244,7 +244,7 @@ class GopherClient:
             print(f"{path}")
         
         # d. The contents of the smallest text file
-        print(f"\nd. Contents of the smallest text file ({self.smallest_text_file.get_path()}):")
+        print(f"\nd. Contents of the smallest text file ({self.smallest_text_file.get_path()}): {self.smallest_text_file.get_size()} bytes")
         print(f"{self.smallest_text_file.get_content()}")
         
         # e. The size of the largest text file
@@ -266,7 +266,7 @@ class GopherClient:
             status = "up" if is_up else "down"
             print(f"{host}:{port} ({status})")
         
-        # i. Any references that have "issues/errors"
+        # i. Any references that have "issues/errors (error type)"
         print("\ni. References with issues/errors:" )
         for ref in self.references_with_issues:
             print(f"{ref}")
