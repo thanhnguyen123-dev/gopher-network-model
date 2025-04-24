@@ -33,7 +33,7 @@ class GopherClient:
         self.smallest_binary_file = FileStats("", float('inf'), None)
         self.largest_binary_file = FileStats("", 0, None)
         self.references_with_issues = set()
-        self.references_with_errors = set()
+        self.invalid_references = set()
         self.external_servers = dict()
 
 
@@ -97,7 +97,7 @@ class GopherClient:
                 payload = data[:-len(GopherClient.EOF_TERMINATOR)].rstrip(GopherClient.CRLF.encode())
                 return payload
             else:
-                # if the file is not a text file, add it to the references with issues
+                # if the file is a text file but doesn't end with .<CRLF>, add it to the references with issues
                 self.references_with_issues.add(path)
                 return data
         else:
@@ -129,7 +129,7 @@ class GopherClient:
         :param line: the line to parse into an item
         :return: the parsed item from the line
     """
-    def parse_item(line: str) -> Item:
+    def parse_item(self, line: str) -> Item:
         # split into an array of items because each item is separated by a tab
         raw_items = line.split(GopherClient.TAB)
         item_type = raw_items[0][0] if len(raw_items[0]) > 0 else ""
@@ -174,7 +174,7 @@ class GopherClient:
 
             # item-type 3 (error)
             if item_type == "3":
-                self.references_with_errors.add(path)
+                self.invalid_references.add(path)
                 continue
 
             # EXTERNAL SERVER CASE
@@ -183,6 +183,7 @@ class GopherClient:
                     self.external_servers[item_host] = (item_port, is_up)
                     continue
                 else:
+
                     self.references_with_issues.add(item_path)
                     continue
             
@@ -325,9 +326,9 @@ class GopherClient:
         print(f"   Size of the largest binary file ({self.largest_binary_file.get_path()}): {self.largest_binary_file.get_size()} bytes")
         
         # g. The number of unique invalid references (those with an "error" type)
-        print(f"\ng. Number of unique invalid references: {len(self.references_with_errors)}")
+        print(f"\ng. Number of unique invalid references: {len(self.invalid_references)}")
         print("List of invalid references:")
-        for ref in self.references_with_errors:
+        for ref in self.invalid_references:
             print(f"{ref}")
         
         # h. A list of external servers that were referenced
