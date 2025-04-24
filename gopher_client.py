@@ -3,11 +3,12 @@ from datetime import datetime
 from item import Item
 from socket_utils import SocketUtils
 from time import time
+import os
 
 # GopherClient class
 
 class GopherClient:
-    TIME_OUT = 35
+    TIME_OUT = 20
     EOF_TERMINATOR = b".\r\n"
     CRLF = "\r\n"
     TAB = "\t"
@@ -21,7 +22,7 @@ class GopherClient:
         self.visited_paths = set()
         self.text_file_path_list = []
         self.binary_file_path_list = []
-        self.smallest_text_file = ("", "", float('inf'))    # tuple of (path, content, size)
+        self.smallest_text_file = ("", float('inf'), "")    # tuple of (path, size, content)
         self.largest_text_file = ("", 0)                    # tuple of (path, size)
         self.smallest_binary_file = ("", float('inf'))      # tuple of (path, size)
         self.largest_binary_file = ("", 0)                  # tuple of (path, size)
@@ -70,7 +71,7 @@ class GopherClient:
                 
         # close socket since we only want one-time request
         self.sock.close()
-
+      
         if is_text_file:
             if data.endswith(GopherClient.EOF_TERMINATOR):
                 payload = data[:-len(GopherClient.EOF_TERMINATOR)].rstrip(GopherClient.CRLF.encode())
@@ -111,13 +112,13 @@ class GopherClient:
         if path in self.visited_paths:
             return
         
-        self.visited_paths.add(path)
-        self.directories.add(path)
         self.send_request(path)
         raw_response = self.read_response(path).decode()
 
         if len(raw_response) == 0:
             return
+        self.visited_paths.add(path)
+        self.directories.add(path)
 
         items = self.parse_response(raw_response)
         for item in items:
@@ -173,8 +174,8 @@ class GopherClient:
 
         self.text_file_path_list.append(item_path)
 
-        if len(text_file_content) < self.smallest_text_file[2]: 
-            self.smallest_text_file = (item_path, text_file_content.decode(), len(text_file_content))
+        if len(text_file_content) < self.smallest_text_file[1]: 
+            self.smallest_text_file = (item_path, len(text_file_content), text_file_content.decode())
 
         if len(text_file_content) > self.largest_text_file[1]:
             self.largest_text_file = (item_path, len(text_file_content))
@@ -222,7 +223,7 @@ class GopherClient:
         
         # d. The contents of the smallest text file
         print(f"\nd. Contents of the smallest text file ({self.smallest_text_file[0]}):")
-        print(f"{self.smallest_text_file[1]}")
+        print(f"{self.smallest_text_file[2]}")
         
         # e. The size of the largest text file
         print(f"\ne. Size of the largest text file ({self.largest_text_file[0]}): {self.largest_text_file[1]} bytes")
@@ -244,7 +245,7 @@ class GopherClient:
             print(f"{host}:{port} ({status})")
         
         # i. Any references that have "issues/errors"
-        print("\ni. References with issues/errors:")
+        print("\ni. References with issues/errors:" + str(len(self.references_with_issues)))
         for ref in self.references_with_issues:
             print(f"{ref}")
         
