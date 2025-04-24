@@ -269,8 +269,8 @@ class GopherClient:
     """
     def save_file(self, file_path: str, content: bytes, is_text_file: bool) -> None:
         # create folder if it doesn't exist
+        abs_path = os.path.dirname(os.path.abspath(__file__))
         folder = "text_files" if is_text_file else "binary_files"
-        os.makedirs(folder, exist_ok=True)
 
         # get the file name
         file_name = file_path.split("/")[-1]
@@ -280,15 +280,20 @@ class GopherClient:
             file_name = file_name[:GopherClient.MAX_FILENAME_LENGTH]
 
         # create the file path
-        file_path = os.path.join(folder, file_name)
+        file_path = os.path.join(abs_path, folder, file_name)
 
         # write the content to the file
-        with open(file_path, "w" if is_text_file else "wb") as file:
-            if is_text_file:
-                file.write(content.decode())
-            else:
-                file.write(content)
-
+        try:
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            with open(file_path, "w" if is_text_file else "wb") as file:
+                if is_text_file:
+                    file.write(content.decode())
+                else:
+                    file.write(content)
+        
+        except:
+            return
+        
 
     """
         Print the results of the Gopher server
